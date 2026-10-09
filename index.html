@@ -214,7 +214,7 @@ const TABS=[['SEMUA','Semua',()=>true],['BELUM','Belum masuk',r=>stIdx(r)===0],[
 async function api(action,payload={}){
   if(DEMO) return demoApi(action,payload);
   if(action==='getPlanning'){
-    const r=await fetch(GAS_URL+'?action=getPlanning&tanggal='+encodeURIComponent(payload.tanggal));
+    const r=await fetch(GAS_URL+'?action=getPlanning&tanggal='+encodeURIComponent(payload.tanggal)+(payload.fresh?'&fresh=1':''));
     return r.json();
   }
   const r=await fetch(GAS_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({action,...payload})});
@@ -239,7 +239,7 @@ function getCache(t){try{return JSON.parse(localStorage.getItem(cacheKey(t))||'n
 function setCache(t,d){try{localStorage.setItem(cacheKey(t),JSON.stringify({at:Date.now(),data:d}))}catch(e){}}
 function syncNote(txt){const n=$('#syncNote');if(n){n.textContent=txt;n.hidden=!txt;}}
 let loadSeq=0;
-async function load(){
+async function load(fresh=false){
   const tgl=$('#fTanggal').value, seq=++loadSeq;
   const c=DEMO?null:getCache(tgl);
   if(c){
@@ -250,7 +250,7 @@ async function load(){
   }
   const btn=$('#btnReload'); btn.disabled=true;
   try{
-    const r=await api('getPlanning',{tanggal:tgl});
+    const r=await api('getPlanning',{tanggal:tgl,fresh});
     if(!r.ok) throw new Error(r.msg);
     if(seq!==loadSeq) return;           // tanggal sudah diganti
     rows=r.data; if(!DEMO) setCache(tgl,rows);
@@ -410,7 +410,7 @@ async function save(stepId,btn){
   }
   showErr(stepId,'');
   btn.disabled=true; const old=btn.textContent; btn.textContent='Menyimpan…';
-  const res=await api('update',{row:r.row,key:r.key,fields}).catch(e=>({ok:false,msg:e.message}));
+  const res=await api('update',{row:r.row,key:r.key,tanggal:$('#fTanggal').value,fields}).catch(e=>({ok:false,msg:e.message}));
   btn.disabled=false; btn.textContent=old;
   if(!res.ok) return showErr(stepId,res.msg||'Gagal menyimpan.');
   Object.assign(r,res.data);
@@ -418,6 +418,7 @@ async function save(stepId,btn){
   toast('Tersimpan ke DMS- baris '+r.row);
   openDetail(curKey);
   if(stepId==='sj') openSJ();
+  if(!DEMO) setTimeout(()=>load(true),1500); // ambil hasil rumus sheet di belakang layar
 }
 
 /* ====== SURAT JALAN ====== */
@@ -471,7 +472,7 @@ document.addEventListener('click',e=>{
   else if(t.dataset.sj) openSJ();
   else if(t.id==='btnTutupSJ') $('#sjOverlay').hidden=true;
   else if(t.id==='btnPrint') window.print();
-  else if(t.id==='btnReload') load();
+  else if(t.id==='btnReload') load(true);
 });
 document.addEventListener('change',e=>{
   if(e.target.id==='in_jamMuat'&&e.target.value){const s=$('#in_shift');if(s&&!s.dataset.touched)s.value=shiftOf(new Date(e.target.value).getHours());}
