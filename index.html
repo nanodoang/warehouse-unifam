@@ -69,6 +69,7 @@ input:focus-visible,select:focus-visible,textarea:focus-visible,button:focus-vis
 .st3,.st4{background:var(--run-bg);color:var(--run)}
 .st5{background:var(--done-bg);color:var(--done)}
 .empty{color:var(--muted);text-align:center;padding:40px 8px}
+.sync{font-size:12px;color:var(--run);margin-top:-2px}
 .demo{font-size:12px;color:var(--wait);background:var(--wait-bg);border-radius:8px;padding:8px 10px;margin-top:12px}
 
 /* Detail */
@@ -147,6 +148,7 @@ details.step summary::-webkit-details-marker{display:none}
     </div>
     <input id="fCari" class="search" placeholder="Cari distributor, expedisi, sales…" aria-label="Cari">
     <div class="tabs" id="tabs" role="group" aria-label="Filter status"></div>
+    <div class="sync" id="syncNote" hidden></div>
   </header>
 
   <main id="viewList">
@@ -231,14 +233,37 @@ function demoApi(action,p){
 }
 
 /* ====== LIST ====== */
+/* Cache per tanggal di HP: tampil instan, lalu diperbarui dari sheet */
+const cacheKey=t=>'dms_'+t;
+function getCache(t){try{return JSON.parse(localStorage.getItem(cacheKey(t))||'null')}catch(e){return null}}
+function setCache(t,d){try{localStorage.setItem(cacheKey(t),JSON.stringify({at:Date.now(),data:d}))}catch(e){}}
+function syncNote(txt){const n=$('#syncNote');if(n){n.textContent=txt;n.hidden=!txt;}}
+let loadSeq=0;
 async function load(){
-  $('#list').innerHTML='<div class="empty">Memuat data DMS-…</div>';
+  const tgl=$('#fTanggal').value, seq=++loadSeq;
+  const c=DEMO?null:getCache(tgl);
+  if(c){
+    rows=c.data; renderTabs(); if(curKey) openDetail(curKey); else renderList();
+    syncNote('Memperbarui data… (tampilan dari '+new Date(c.at).toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit'})+')');
+  }else{
+    $('#list').innerHTML='<div class="empty">Memuat data DMS-…</div>';
+  }
+  const btn=$('#btnReload'); btn.disabled=true;
   try{
-    const r=await api('getPlanning',{tanggal:$('#fTanggal').value});
+    const r=await api('getPlanning',{tanggal:tgl});
     if(!r.ok) throw new Error(r.msg);
-    rows=r.data;
-  }catch(e){rows=[];renderTabs();$('#list').innerHTML='<div class="empty">Gagal memuat data: '+esc(e.message)+'. Cek GAS_URL dan koneksi, lalu ketuk Muat ulang.</div>';return;}
-  renderTabs(); if(curKey) openDetail(curKey); else renderList();
+    if(seq!==loadSeq) return;           // tanggal sudah diganti
+    rows=r.data; if(!DEMO) setCache(tgl,rows);
+    syncNote('');
+  }catch(e){
+    if(seq!==loadSeq) return;
+    if(c){syncNote('Gagal memperbarui ('+e.message+'). Menampilkan data terakhir.');return;}
+    rows=[];renderTabs();$('#list').innerHTML='<div class="empty">Gagal memuat data: '+esc(e.message)+'. Cek koneksi lalu ketuk Muat ulang.</div>';return;
+  }finally{ if(seq===loadSeq) btn.disabled=false; }
+  renderTabs();
+  // jangan ganggu petugas yang sedang mengetik di detail
+  if(curKey){ const typing=document.activeElement&&$('#viewDetail').contains(document.activeElement); if(!typing) openDetail(curKey); }
+  else renderList();
 }
 function visible(){
   const q=$('#fCari').value.trim().toLowerCase();
@@ -389,6 +414,7 @@ async function save(stepId,btn){
   btn.disabled=false; btn.textContent=old;
   if(!res.ok) return showErr(stepId,res.msg||'Gagal menyimpan.');
   Object.assign(r,res.data);
+  if(!DEMO) setCache($('#fTanggal').value,rows);
   toast('Tersimpan ke DMS- baris '+r.row);
   openDetail(curKey);
   if(stepId==='sj') openSJ();
