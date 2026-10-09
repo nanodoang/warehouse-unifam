@@ -1,0 +1,473 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Muat Gudang UNIFAM</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<style>
+/* Layout: satu kolom mobile-first; daftar kiriman DMS- → timeline langkah gudang → surat jalan */
+:root{
+  --bg:#eef2f0; --surface:#ffffff; --ink:#15201b; --muted:#5a6a62; --line:#d5ddd9;
+  --accent:#0d6b4d; --accent-ink:#ffffff;
+  --wait:#7a5c00; --wait-bg:#fff1c2; --run:#0a58a8; --run-bg:#dfecfb; --done:#0d6b4d; --done-bg:#d9f0e5;
+  --gray-bg:#e7ebe9; --bad:#b42318; --bad-bg:#fde5e2;
+  --paper:#ffffff; --paper-ink:#111111;
+  --font:'IBM Plex Sans',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
+  --mono:'IBM Plex Mono',ui-monospace,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0f1513; --surface:#18211d; --ink:#e4ece8; --muted:#97a8a0; --line:#2c3833;
+  --accent:#3fbf8f; --accent-ink:#06150f;
+  --wait:#f1c84b; --wait-bg:#3a3010; --run:#7db8f5; --run-bg:#132b45; --done:#5fd3a6; --done-bg:#123527;
+  --gray-bg:#25302b; --bad:#ff8a7a; --bad-bg:#3d1a16; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0f1513; --surface:#18211d; --ink:#e4ece8; --muted:#97a8a0; --line:#2c3833;
+  --accent:#3fbf8f; --accent-ink:#06150f;
+  --wait:#f1c84b; --wait-bg:#3a3010; --run:#7db8f5; --run-bg:#132b45; --done:#5fd3a6; --done-bg:#123527;
+  --gray-bg:#25302b; --bad:#ff8a7a; --bad-bg:#3d1a16; color-scheme:dark}
+
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.45 var(--font)}
+.app{max-width:640px;margin:0 auto;padding-inline:16px;padding-block:0 40px}
+header.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);padding-block:14px 10px;display:flex;flex-direction:column;gap:10px;border-bottom:1px solid var(--line)}
+.brand{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.brand h1{margin:0;font-size:18px;font-weight:700}
+.brand small{font:500 11px var(--mono);color:var(--muted);text-transform:uppercase;letter-spacing:.8px}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end}
+input,select,textarea,button{font:inherit;color:inherit}
+input,select,textarea{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:9px 10px;min-width:0;width:100%}
+input:focus-visible,select:focus-visible,textarea:focus-visible,button:focus-visible,summary:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.grow{flex:1 1 140px;min-width:0}
+.btn{border:0;border-radius:8px;padding:11px 14px;font-weight:600;cursor:pointer;background:var(--accent);color:var(--accent-ink);width:auto}
+.btn.ghost{background:var(--surface);color:var(--ink);border:1px solid var(--line)}
+.btn.block{width:100%}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.tabs{display:flex;gap:6px;overflow-x:auto;padding-bottom:2px}
+.tab{flex:0 0 auto;border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:6px 12px;font-size:13px;font-weight:500;cursor:pointer}
+.tab[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.tab b{font-family:var(--mono);margin-left:4px}
+.search{margin-top:0}
+
+.list{display:flex;flex-direction:column;gap:10px;margin-top:14px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:12px 14px;display:flex;flex-direction:column;gap:5px;cursor:pointer;text-align:left;width:100%}
+.card:hover{border-color:var(--muted)}
+.head{display:flex;justify-content:space-between;gap:8px;align-items:center}
+.sub{font:500 12px var(--mono);color:var(--muted);letter-spacing:.2px}
+.cust{font-weight:600;font-size:16px;line-height:1.3}
+.meta{color:var(--muted);font-size:13px;display:flex;flex-wrap:wrap;gap:3px 12px}
+.meta b{font-family:var(--mono);color:var(--ink);font-weight:600}
+.prog{display:grid;grid-template-columns:repeat(5,1fr);gap:3px;margin-top:4px}
+.prog i{height:4px;border-radius:2px;background:var(--gray-bg)}
+.prog i.on{background:var(--accent)}
+.pill{font:600 11px var(--mono);text-transform:uppercase;letter-spacing:.5px;padding:3px 8px;border-radius:999px;white-space:nowrap}
+.st0{background:var(--gray-bg);color:var(--muted)}
+.st1,.st2{background:var(--wait-bg);color:var(--wait)}
+.st3,.st4{background:var(--run-bg);color:var(--run)}
+.st5{background:var(--done-bg);color:var(--done)}
+.empty{color:var(--muted);text-align:center;padding:40px 8px}
+.demo{font-size:12px;color:var(--wait);background:var(--wait-bg);border-radius:8px;padding:8px 10px;margin-top:12px}
+
+/* Detail */
+.back{background:none;border:0;color:var(--accent);font-weight:600;padding:4px 0;cursor:pointer}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px;margin-top:12px;display:flex;flex-direction:column;gap:10px}
+.kv{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 14px}
+.kv div{min-width:0}
+.kv span{display:block;font:500 11px var(--mono);color:var(--muted);text-transform:uppercase;letter-spacing:.5px}
+.kv strong{font-weight:600;word-break:break-word}
+.kv.three{grid-template-columns:repeat(3,minmax(0,1fr))}
+label.f{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted);font-weight:500}
+label.f > *{color:var(--ink);font-size:15px}
+
+.steps{display:flex;flex-direction:column;gap:8px;margin-top:12px}
+details.step{background:var(--surface);border:1px solid var(--line);border-radius:10px}
+details.step[open]{border-color:var(--muted)}
+details.step.locked{opacity:.5}
+details.step summary{list-style:none;display:flex;align-items:center;gap:10px;padding:12px 14px;cursor:pointer}
+details.step summary::-webkit-details-marker{display:none}
+.num{font:600 12px var(--mono);width:24px;height:24px;flex:0 0 24px;border-radius:50%;display:grid;place-items:center;background:var(--gray-bg);color:var(--muted)}
+.step.done .num{background:var(--done-bg);color:var(--done)}
+.step.active .num{background:var(--accent);color:var(--accent-ink)}
+.s-title{font-weight:600;flex:1;min-width:0}
+.s-title small{display:block;font:500 12px var(--mono);color:var(--muted);font-weight:500}
+.s-val{font:600 14px var(--mono);font-variant-numeric:tabular-nums;text-align:right}
+.s-body{padding:0 14px 14px;display:flex;flex-direction:column;gap:10px}
+.opt{font:500 10px var(--mono);text-transform:uppercase;color:var(--muted);border:1px solid var(--line);border-radius:4px;padding:1px 5px;margin-left:6px;vertical-align:2px}
+.err{color:var(--bad);font-size:13px}
+.hint{color:var(--muted);font-size:12px}
+.dtgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.metric{font:600 15px var(--mono)}
+.hit{color:var(--done)} .miss{color:var(--bad)}
+
+.toast{position:fixed;left:50%;bottom:calc(16px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:8px;font-size:14px;z-index:30;max-width:calc(100% - 32px)}
+
+/* Surat jalan */
+.sj-overlay{position:fixed;inset:0;z-index:20;background:rgba(0,0,0,.55);overflow:auto;padding:16px;padding-top:calc(16px + env(safe-area-inset-top,0px))}
+.sj-bar{max-width:794px;margin:0 auto 10px;display:flex;gap:8px;justify-content:flex-end}
+.sj{background:var(--paper);color:var(--paper-ink);max-width:794px;margin:0 auto;padding:28px 30px;font:13px/1.4 var(--font);border-radius:4px}
+.sj-head{display:flex;justify-content:space-between;gap:16px;border-bottom:2px solid var(--paper-ink);padding-bottom:10px;flex-wrap:wrap}
+.sj-head .co b{font-size:17px;display:block}
+.sj-head .ttl{text-align:right}
+.sj-head .ttl b{font-size:20px;letter-spacing:2px;display:block}
+.sj-head .ttl span{font:600 12px var(--mono)}
+.sj-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:14px 0}
+.sj-grid td{padding:2px 6px 2px 0;vertical-align:top}
+.sj-grid td:first-child{color:#444;white-space:nowrap;width:104px}
+.blank{display:inline-block;min-width:150px;border-bottom:1px dotted #000}
+.sj-items{width:100%;border-collapse:collapse;margin-top:6px}
+.sj-items th,.sj-items td{border:1px solid var(--paper-ink);padding:7px 8px;text-align:left}
+.sj-items th{background:#eee}
+.sj-items .n{text-align:right;font-family:var(--mono)}
+.sj-note{margin-top:10px;font-size:12px}
+.sign{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-top:22px;text-align:center;font-size:12px}
+.sign div{display:flex;flex-direction:column;justify-content:space-between;height:96px}
+.sign i{font-style:normal;border-top:1px solid var(--paper-ink);padding-top:3px}
+@media (max-width:520px){.sj{padding:18px 14px}.sj-grid{grid-template-columns:1fr}.sign{grid-template-columns:repeat(2,minmax(0,1fr))}.kv.three{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+@media print{
+  @page{size:A4;margin:12mm}
+  body{background:#fff}
+  .app,.toast,.sj-bar{display:none!important}
+  .sj-overlay{position:static;background:none;padding:0;overflow:visible}
+  .sj{max-width:none;padding:0;color:#000;background:#fff}
+  .sj-grid{grid-template-columns:1fr 1fr}.sign{grid-template-columns:repeat(4,1fr)}
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="top">
+    <div class="brand"><h1>Muat Gudang</h1><small>DMS- · PT. UNIFAM</small></div>
+    <div class="row">
+      <input id="fTanggal" type="date" class="grow" aria-label="Tanggal">
+      <button class="btn ghost" id="btnReload" type="button">Muat ulang</button>
+    </div>
+    <input id="fCari" class="search" placeholder="Cari distributor, expedisi, sales…" aria-label="Cari">
+    <div class="tabs" id="tabs" role="group" aria-label="Filter status"></div>
+  </header>
+
+  <main id="viewList">
+    <div class="demo" id="demoNote" hidden>Mode contoh: data di bawah sampel dari tab DMS-, belum terhubung. Isi <code>GAS_URL</code> untuk pakai data asli.</div>
+    <div class="list" id="list"></div>
+  </main>
+  <main id="viewDetail" hidden></main>
+</div>
+
+<div class="sj-overlay" id="sjOverlay" hidden>
+  <div class="sj-bar">
+    <button class="btn ghost" id="btnTutupSJ" type="button">Tutup</button>
+    <button class="btn" id="btnPrint" type="button">Cetak</button>
+  </div>
+  <div class="sj" id="sjPaper"></div>
+</div>
+<div class="toast" id="toast" hidden></div>
+
+<script>
+/* ====== KONFIGURASI ====== */
+const GAS_URL = '';   // URL Web App (…/exec). Kosong = mode contoh.
+const NAMA_PT = 'PT. UNIFAM';
+const ALAMAT_PT = 'Gudang Barang Jadi';
+const SHIFTS = ['Shift 1','Shift 2','Shift 3'];
+const TIMS = Array.from({length:10},(_,i)=>'Tim '+(i+1));
+/* Jam shift (dari pola data DMS-): Shift 1 05–13, Shift 2 13–21, Shift 3 21–05.
+   Muat sebelum jam 05:00 masuk periode tanggal sebelumnya. */
+const SHIFT_START = 5;
+const shiftOf = h => (h>=5&&h<13)?'Shift 1':(h>=13&&h<21)?'Shift 2':'Shift 3';
+const DEMO = !GAS_URL;
+
+/* Kendala BA–BK (menit) */
+const DOWNTIME = [
+  ['dtArmada','Tunggu kedatangan armada'],['dtOrang','Kurang orang'],
+  ['dtBarangProd','Tunggu barang bulog/produksi'],['dtTambahanOM','Menunggu tambahan (OM)'],
+  ['dtLoadingan','Nunggu loadingan'],['dtOverShift','Over shift'],['dtAntrianSJ','Antrian cetak SJ'],
+  ['dtJamMuat','Tunggu jam muat'],['dtBarangKosong','Barang kosong'],
+  ['dtSalahMuat','Bongkar salah muatan'],['dtSupir','Supir tidak ada']
+];
+
+/* ====== UTIL ====== */
+let rows=[], filter='SEMUA', curKey=null;
+const $=s=>document.querySelector(s);
+const p2=n=>String(n).padStart(2,'0');
+const ymd=d=>d.getFullYear()+'-'+p2(d.getMonth()+1)+'-'+p2(d.getDate());
+const nowLocal=()=>{const d=new Date();return ymd(d)+'T'+p2(d.getHours())+':'+p2(d.getMinutes());};
+const isDT=v=>/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(String(v||''));
+const jam=v=>!v?'–':isDT(v)?v.slice(11,16):String(v);
+const tglJam=v=>{if(!isDT(v))return v||'–';const[d,t]=v.split('T');const[y,m,dd]=d.split('-');return dd+'/'+m+' '+t.slice(0,5);};
+const tglID=s=>{const d=new Date(s+'T00:00:00');return isNaN(d)?s:d.toLocaleDateString('id-ID',{day:'2-digit',month:'long',year:'numeric'});};
+const num=v=>{const n=Number(v);return v===''||v==null||isNaN(n)?(v||'–'):n.toLocaleString('id-ID');};
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const has=v=>v!==''&&v!=null;
+function toast(m){const t=$('#toast');t.textContent=m;t.hidden=false;clearTimeout(toast.h);toast.h=setTimeout(()=>t.hidden=true,2600);}
+function periodeOf(dt){const d=new Date(dt);if(d.getHours()<SHIFT_START)d.setDate(d.getDate()-1);return ymd(d);}
+
+/* ====== STATUS ====== */
+const STATUS=['BELUM MASUK','MASUK','SEDANG MUAT','SELESAI MUAT','SJ TERCETAK','KELUAR'];
+function stIdx(r){return has(r.jamKeluar)?5:has(r.cetakSJ)?4:has(r.jamSelesai)?3:has(r.jamMuat)?2:has(r.jamMasuk)?1:0;}
+const TABS=[['SEMUA','Semua',()=>true],['BELUM','Belum masuk',r=>stIdx(r)===0],['PROSES','Di gudang',r=>{const s=stIdx(r);return s>0&&s<5;}],['KELUAR','Sudah keluar',r=>stIdx(r)===5]];
+
+/* ====== API ====== */
+async function api(action,payload={}){
+  if(DEMO) return demoApi(action,payload);
+  if(action==='getPlanning'){
+    const r=await fetch(GAS_URL+'?action=getPlanning&tanggal='+encodeURIComponent(payload.tanggal));
+    return r.json();
+  }
+  const r=await fetch(GAS_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({action,...payload})});
+  return r.json();
+}
+
+/* ====== DATA CONTOH (diambil dari pola tab DMS-) ====== */
+const demoDB=(()=>{
+  const t=ymd(new Date()), at=(h,m)=>t+'T'+p2(h)+':'+p2(m);
+  const base={week:41,plan:t,planTransport:t,tglDatang:t};
+  return [
+    {...base,row:3401,sales:'WULAN',dist:'PT. Ramasurya Perkasa Distrindo - SIDOARJO',totalOrder:3115,m3:50.1,reqBongkar:'12/10/2026',planSeq:'Seq 1 - Pagi',planSequent:'Seq 1 - Pagi',key:'46304PT. Ramasurya Perkasa Distrindo - SIDOARJO',jalur:'Darat',truck:'FUSO 48',expedisi:'SJP',jamDatang:'6:20',actSeq:'Seq 1 - Pagi',
+     jamMasuk:at(6,31),mulaiSiap:'',selesaiSiap:'',jamMuat:at(6,40),jamSelesai:at(7,35),shift:'Shift 1',tim:'Tim 2',periode:t,totalMuat:3115,durMuat:'0:55',cycle:'Hit',cetakSJ:at(7,50),qtyCetak:3115,jamKeluar:at(8,2),totalJam:'1:31',standar:'4:08',missHit:'Hit',qtyActual:3115},
+    {...base,row:3402,sales:'Fahmi',dist:'PT. Ramasurya Perkasa Distrindo - TANGERANG',totalOrder:2805,m3:47.9,reqBongkar:'10/10/2026',planSeq:'Seq 1 - Pagi',planSequent:'Seq 1 - Pagi',key:'46304PT. Ramasurya Perkasa Distrindo - TANGERANG',jalur:'Darat',truck:'FUSO 48',expedisi:'SJP',jamDatang:'8:10',actSeq:'Seq 1 - Pagi',
+     jamMasuk:at(8,28),jamMuat:at(8,45),shift:'Shift 1',tim:'Tim 1'},
+    {...base,row:3403,sales:'Fahmi',dist:'PT. Unirama Duta Niaga MT - CIBUBUR',totalOrder:1430,m3:21.7,reqBongkar:'10/10/2026',planSeq:'Seq 2 - Siang',planSequent:'Seq 2 - Siang',key:'46304PT. Unirama Duta Niaga MT - CIBUBUR',jalur:'Darat',truck:'CD 20',expedisi:'Hidup Jaya',jamDatang:'9:05',actSeq:'Seq 1 - Pagi',
+     jamMasuk:at(9,12)},
+    {...base,row:3404,sales:'ANGGA',dist:'PT. Borwita Citra Prima - MAKASSAR',totalOrder:4685,m3:73.7,reqBongkar:'22/10/2026',planSeq:'Seq 2 - Siang',planSequent:'Seq 2 - Siang',key:'46304PT. Borwita Citra Prima - MAKASSAR',jalur:'Laut',truck:'40 FT',expedisi:'SPA',jamDatang:'',actSeq:''}
+  ];
+})();
+function demoApi(action,p){
+  if(action==='getPlanning') return {ok:true,data:JSON.parse(JSON.stringify(demoDB.filter(r=>r.planTransport===p.tanggal)))};
+  const r=demoDB.find(x=>x.key===p.key); if(!r) return {ok:false,msg:'Baris kiriman tidak ditemukan'};
+  Object.assign(r,p.fields);
+  if(r.jamMuat&&r.jamSelesai){const m=Math.round((new Date(r.jamSelesai)-new Date(r.jamMuat))/60000);r.durMuat=Math.floor(m/60)+':'+p2(m%60);}
+  return {ok:true,data:JSON.parse(JSON.stringify(r))};
+}
+
+/* ====== LIST ====== */
+async function load(){
+  $('#list').innerHTML='<div class="empty">Memuat data DMS-…</div>';
+  try{
+    const r=await api('getPlanning',{tanggal:$('#fTanggal').value});
+    if(!r.ok) throw new Error(r.msg);
+    rows=r.data;
+  }catch(e){rows=[];renderTabs();$('#list').innerHTML='<div class="empty">Gagal memuat data: '+esc(e.message)+'. Cek GAS_URL dan koneksi, lalu ketuk Muat ulang.</div>';return;}
+  renderTabs(); if(curKey) openDetail(curKey); else renderList();
+}
+function visible(){
+  const q=$('#fCari').value.trim().toLowerCase();
+  const fn=TABS.find(t=>t[0]===filter)[2];
+  return rows.filter(r=>fn(r)&&(!q||[r.dist,r.expedisi,r.sales,r.truck].join(' ').toLowerCase().includes(q)));
+}
+function renderTabs(){
+  $('#tabs').innerHTML=TABS.map(([k,l,fn])=>`<button type="button" class="tab" data-f="${k}" aria-pressed="${filter===k}">${l}<b>${rows.filter(fn).length}</b></button>`).join('');
+}
+function renderList(){
+  const v=visible();
+  if(!v.length){$('#list').innerHTML='<div class="empty">Tidak ada kiriman untuk '+tglID($('#fTanggal').value)+' di filter ini.</div>';return;}
+  $('#list').innerHTML=v.map(r=>{const s=stIdx(r);return `
+    <button type="button" class="card" data-key="${esc(r.key)}">
+      <div class="head"><span class="sub">Baris ${r.row} · ${esc(r.planSeq||'-')}</span><span class="pill st${s}">${STATUS[s]}</span></div>
+      <div class="cust">${esc(r.dist)}</div>
+      <div class="meta"><span>${esc(r.expedisi||'Expedisi belum ada')}${r.truck?' · '+esc(r.truck):''}</span><span>${esc(r.jalur||'')}</span><span>Order <b>${num(r.totalOrder)}</b></span><span><b>${num(r.m3)}</b> m³</span></div>
+      <div class="meta">${s===0?`<span>Datang pabrik ${esc(r.jamDatang||'–')}</span>`:`<span>Masuk <b>${jam(r.jamMasuk)}</b></span><span>Muat <b>${jam(r.jamMuat)}</b></span><span>Selesai <b>${jam(r.jamSelesai)}</b></span><span>Keluar <b>${jam(r.jamKeluar)}</b></span>`}</div>
+      <div class="prog">${[1,2,3,4,5].map(i=>`<i class="${i<=s?'on':''}"></i>`).join('')}</div>
+    </button>`;}).join('');
+}
+
+/* ====== DETAIL ====== */
+const STEPS=[
+  {id:'masuk',title:'Armada masuk',col:'AH',key:'jamMasuk',need:null,
+   fields:[['jamMasuk','dt','Jam masuk']]},
+  {id:'siap',title:'Penyiapan barang',col:'AI–AJ',key:'mulaiSiap',need:'jamMasuk',optional:true,
+   fields:[['mulaiSiap','dt','Mulai penyiapan'],['selesaiSiap','dt','Selesai penyiapan']]},
+  {id:'muat',title:'Mulai muat',col:'AL·AN·AO',key:'jamMuat',need:'jamMasuk',
+   fields:[['jamMuat','dt','Jam muat'],['shift','shift','Shift'],['tim','tim','Tim muat']]},
+  {id:'selesai',title:'Selesai muat',col:'AM·AQ·AZ',key:'jamSelesai',need:'jamMuat',
+   fields:[['jamSelesai','dt','Jam selesai'],['totalMuat','num','Total muat'],['qtyActual','num','Qty actual']]},
+  {id:'sj',title:'Cetak surat jalan',col:'AT·AU',key:'cetakSJ',need:'jamSelesai',
+   fields:[['cetakSJ','dt','Jam cetak SJ'],['qtyCetak','num','Qty cetak']]},
+  {id:'keluar',title:'Armada keluar',col:'AV',key:'jamKeluar',need:'cetakSJ',
+   fields:[['jamKeluar','dt','Jam keluar']]}
+];
+
+function defVal(r,f,t){
+  if(has(r[f])) return isDT(r[f])?r[f].slice(0,16):String(r[f]).trim();
+  if(t==='dt') return nowLocal();
+  if(f==='shift') return shiftOf(new Date().getHours());
+  if(f==='totalMuat') return r.totalOrder??'';
+  if(f==='qtyActual') return has(r.totalMuat)?r.totalMuat:(r.totalOrder??'');
+  if(f==='qtyCetak') return has(r.qtyActual)?r.qtyActual:(has(r.totalMuat)?r.totalMuat:'');
+  return '';
+}
+function fieldHTML(r,[f,t,label]){
+  const v=defVal(r,f,t), id='in_'+f;
+  if(t==='dt') return `<label class="f grow">${label}<input type="datetime-local" id="${id}" value="${esc(v)}"></label>`;
+  if(t==='num') return `<label class="f grow">${label}<input type="number" inputmode="numeric" min="0" id="${id}" value="${esc(v)}"></label>`;
+  const opts=t==='shift'?SHIFTS:TIMS;
+  return `<label class="f grow">${label}<select id="${id}"><option value="">Pilih…</option>${opts.map(o=>`<option ${o===v?'selected':''}>${o}</option>`).join('')}</select></label>`;
+}
+
+function openDetail(key){
+  const r=rows.find(x=>x.key===key); if(!r){backToList();return;}
+  curKey=key; $('#viewList').hidden=true; $('#tabs').hidden=true; $('#fCari').hidden=true; $('#viewDetail').hidden=false;
+  const s=stIdx(r);
+  const activeId=(STEPS.find(st=>!has(r[st.key])&&!st.optional&&(!st.need||has(r[st.need])))||{}).id;
+  const mh=v=>v==='Hit'?'hit':v==='Miss'?'miss':'';
+  $('#viewDetail').innerHTML=`
+    <div class="row" style="justify-content:space-between;align-items:center;margin-top:12px">
+      <button type="button" class="back" id="btnBack">← Daftar kiriman</button>
+      <span class="pill st${s}">${STATUS[s]}</span>
+    </div>
+    <section class="panel">
+      <div class="sub">Baris ${r.row} · Week ${esc(r.week)} · Sales ${esc(r.sales)}</div>
+      <div class="cust">${esc(r.dist)}</div>
+      <div class="kv three">
+        <div><span>Total order</span><strong>${num(r.totalOrder)}</strong></div>
+        <div><span>Volume</span><strong>${num(r.m3)} m³</strong></div>
+        <div><span>Req bongkar</span><strong>${esc(r.reqBongkar||'–')}</strong></div>
+        <div><span>Expedisi</span><strong>${esc(r.expedisi||'–')}</strong></div>
+        <div><span>Truck</span><strong>${esc(r.truck||'–')}</strong></div>
+        <div><span>Jalur</span><strong>${esc(r.jalur||'–')}</strong></div>
+        <div><span>Plan seq</span><strong>${esc(r.planSequent||r.planSeq||'–')}</strong></div>
+        <div><span>Datang pabrik</span><strong>${esc(r.jamDatang||'–')}</strong></div>
+        <div><span>Actual seq</span><strong>${esc(r.actSeq||'–')}</strong></div>
+      </div>
+    </section>
+
+    <div class="steps">${STEPS.map((st,i)=>{
+      const done=has(r[st.key]), locked=st.need&&!has(r[st.need]), active=st.id===activeId;
+      const cls=['step',done?'done':'',active?'active':'',locked?'locked':''].join(' ');
+      return `<details class="${cls}" data-step="${st.id}" ${active?'open':''}>
+        <summary><span class="num">${done?'✓':i+1}</span>
+          <span class="s-title">${st.title}${st.optional?'<span class="opt">opsional</span>':''}<small>Kolom ${st.col}</small></span>
+          <span class="s-val">${done?tglJam(r[st.key]):''}</span></summary>
+        <div class="s-body">
+          ${locked?`<div class="hint">Isi langkah "${STEPS.find(x=>x.key===st.need).title}" dulu.</div>`:`
+          <div class="row">${st.fields.map(f=>fieldHTML(r,f)).join('')}</div>
+          ${st.id==='muat'?'<div class="hint">Periode tanggal (AP) diisi otomatis dari jam muat. Muat sebelum 05:00 dihitung ke tanggal sebelumnya.</div>':''}
+          <div class="err" id="err_${st.id}" hidden></div>
+          <button type="button" class="btn block" data-save="${st.id}">${done?'Perbarui':'Simpan'}${st.id==='sj'?' &amp; buka surat jalan':''}</button>
+          ${st.id==='sj'&&done?'<button type="button" class="btn ghost block" data-sj="1">Cetak ulang surat jalan</button>':''}`}
+        </div></details>`;}).join('')}
+    </div>
+
+    <section class="panel">
+      <div class="kv three">
+        <div><span>Durasi muat · AR</span><strong class="metric">${esc(r.durMuat||'–')}</strong></div>
+        <div><span>Cycle time · AS</span><strong class="metric ${mh(r.cycle)}">${esc(r.cycle||'–')}</strong></div>
+        <div><span>Total jam · AW</span><strong class="metric">${esc(r.totalJam||'–')}</strong></div>
+        <div><span>Standar · AX</span><strong class="metric">${esc(r.standar||'–')}</strong></div>
+        <div><span>Target · AY</span><strong class="metric ${mh(r.missHit)}">${esc(r.missHit||'–')}</strong></div>
+        <div><span>Periode · AP</span><strong class="metric">${esc(r.periode?String(r.periode).slice(0,10):'–')}</strong></div>
+      </div>
+      <div class="hint">Angka di atas dari rumus sheet, terisi setelah data tersimpan.</div>
+    </section>
+
+    <details class="step" style="margin-top:12px">
+      <summary><span class="num">!</span><span class="s-title">Kendala &amp; issue<small>Kolom BA–BL · menit</small></span>
+        <span class="s-val">${DOWNTIME.reduce((a,[k])=>a+(Number(r[k])||0),0)||''}</span></summary>
+      <div class="s-body">
+        <div class="dtgrid">${DOWNTIME.map(([k,l])=>`<label class="f">${l}<input type="number" inputmode="numeric" min="0" id="in_${k}" value="${esc(has(r[k])&&r[k]!=='-'?r[k]:'')}" placeholder="0"></label>`).join('')}</div>
+        <label class="f">Issue<textarea id="in_issue" rows="2">${esc(r.issue&&r.issue!=='-'?r.issue:'')}</textarea></label>
+        <div class="err" id="err_kendala" hidden></div>
+        <button type="button" class="btn block" data-save="kendala">Simpan kendala</button>
+      </div>
+    </details>`;
+}
+function backToList(){curKey=null;$('#viewDetail').hidden=true;$('#viewList').hidden=false;$('#tabs').hidden=false;$('#fCari').hidden=false;renderTabs();renderList();window.scrollTo(0,0);}
+function showErr(id,m){const e=$('#err_'+id);if(e){e.textContent=m;e.hidden=!m;}}
+
+async function save(stepId,btn){
+  const r=rows.find(x=>x.key===curKey), fields={};
+  if(stepId==='kendala'){
+    DOWNTIME.forEach(([k])=>{const v=$('#in_'+k).value;fields[k]=v===''?'':Number(v);});
+    fields.issue=$('#in_issue').value.trim();
+  }else{
+    const st=STEPS.find(s=>s.id===stepId);
+    for(const [f,t,label] of st.fields){
+      const v=$('#in_'+f).value.trim();
+      if(!v && !(st.optional&&f==='selesaiSiap')) return showErr(stepId,label+' wajib diisi.');
+      if(t==='num'&&v&&Number(v)<0) return showErr(stepId,label+' tidak boleh minus.');
+      fields[f]=t==='num'&&v?Number(v):v;
+    }
+    // urutan waktu harus masuk akal
+    const T=k=>fields[k]||(isDT(r[k])?r[k]:'');
+    const chk=[['jamMuat','jamMasuk','Jam muat'],['jamSelesai','jamMuat','Jam selesai'],['cetakSJ','jamSelesai','Jam cetak SJ'],['jamKeluar','cetakSJ','Jam keluar'],['selesaiSiap','mulaiSiap','Selesai penyiapan']];
+    for(const [a,b,l] of chk){ if(fields[a]&&T(b)&&fields[a]<T(b)) return showErr(stepId,l+' lebih awal dari langkah sebelumnya. Cek lagi jamnya.'); }
+    if(stepId==='muat') fields.periode=periodeOf(fields.jamMuat);
+  }
+  showErr(stepId,'');
+  btn.disabled=true; const old=btn.textContent; btn.textContent='Menyimpan…';
+  const res=await api('update',{row:r.row,key:r.key,fields}).catch(e=>({ok:false,msg:e.message}));
+  btn.disabled=false; btn.textContent=old;
+  if(!res.ok) return showErr(stepId,res.msg||'Gagal menyimpan.');
+  Object.assign(r,res.data);
+  toast('Tersimpan ke DMS- baris '+r.row);
+  openDetail(curKey);
+  if(stepId==='sj') openSJ();
+}
+
+/* ====== SURAT JALAN ====== */
+function openSJ(){
+  const r=rows.find(x=>x.key===curKey);
+  const qty=has(r.qtyCetak)?r.qtyCetak:(has(r.qtyActual)?r.qtyActual:r.totalMuat);
+  $('#sjPaper').innerHTML=`
+    <div class="sj-head">
+      <div class="co"><b>${esc(NAMA_PT)}</b>${esc(ALAMAT_PT)}</div>
+      <div class="ttl"><b>SURAT JALAN</b><span>Ref: W${esc(r.week)}-${r.row}</span></div>
+    </div>
+    <div class="sj-grid">
+      <table>
+        <tr><td>Kepada</td><td><b>${esc(r.dist)}</b></td></tr>
+        <tr><td>Sales admin</td><td>${esc(r.sales)}</td></tr>
+        <tr><td>Tgl cetak</td><td>${tglJam(r.cetakSJ)}</td></tr>
+        <tr><td>Req bongkar</td><td>${esc(r.reqBongkar||'-')}</td></tr>
+      </table>
+      <table>
+        <tr><td>Expedisi</td><td>${esc(r.expedisi||'-')}</td></tr>
+        <tr><td>Truck / Jalur</td><td>${esc(r.truck||'-')} / ${esc(r.jalur||'-')}</td></tr>
+        <tr><td>No. Polisi</td><td><span class="blank">&nbsp;</span></td></tr>
+        <tr><td>Driver</td><td><span class="blank">&nbsp;</span></td></tr>
+        <tr><td>Jam muat</td><td>${jam(r.jamMuat)} – ${jam(r.jamSelesai)} · ${esc(String(r.shift||'').trim())} · ${esc(r.tim||'')}</td></tr>
+      </table>
+    </div>
+    <table class="sj-items">
+      <thead><tr><th style="width:36px">No</th><th>Keterangan</th><th class="n">Qty</th><th class="n">M3</th></tr></thead>
+      <tbody>
+        <tr><td>1</td><td>Muatan sesuai order DMS (${esc(r.planSequent||r.planSeq||'')})</td><td class="n">${num(qty)}</td><td class="n">${num(r.m3)}</td></tr>
+        <tr><td colspan="2" style="text-align:right"><b>Total</b></td><td class="n"><b>${num(qty)}</b></td><td class="n"><b>${num(r.m3)}</b></td></tr>
+      </tbody>
+    </table>
+    <div class="sj-note"><b>Catatan:</b> ${esc(r.issue&&r.issue!=='-'?r.issue:'-')}</div>
+    <div class="sign">
+      <div>Dibuat (Gudang)<i>${esc(r.tim||'')}</i></div>
+      <div>Security<i>&nbsp;</i></div>
+      <div>Sopir<i>&nbsp;</i></div>
+      <div>Diterima oleh<i>&nbsp;</i></div>
+    </div>`;
+  $('#sjOverlay').hidden=false;
+}
+
+/* ====== EVENTS ====== */
+document.addEventListener('click',e=>{
+  const t=e.target.closest('button'); if(!t) return;
+  if(t.matches('.tab')){filter=t.dataset.f;renderTabs();renderList();}
+  else if(t.matches('.card')) {openDetail(t.dataset.key);window.scrollTo(0,0);}
+  else if(t.id==='btnBack') backToList();
+  else if(t.dataset.save) save(t.dataset.save,t);
+  else if(t.dataset.sj) openSJ();
+  else if(t.id==='btnTutupSJ') $('#sjOverlay').hidden=true;
+  else if(t.id==='btnPrint') window.print();
+  else if(t.id==='btnReload') load();
+});
+document.addEventListener('change',e=>{
+  if(e.target.id==='in_jamMuat'&&e.target.value){const s=$('#in_shift');if(s&&!s.dataset.touched)s.value=shiftOf(new Date(e.target.value).getHours());}
+  if(e.target.id==='in_shift') e.target.dataset.touched='1';
+  if(e.target.id==='in_totalMuat'){const q=$('#in_qtyActual');if(q&&!q.dataset.touched)q.value=e.target.value;}
+  if(e.target.id==='in_qtyActual') e.target.dataset.touched='1';
+});
+$('#fTanggal').addEventListener('change',()=>{curKey=null;backToList();load();});
+$('#fCari').addEventListener('input',renderList);
+
+$('#fTanggal').value=ymd(new Date());
+$('#demoNote').hidden=!DEMO;
+load();
+</script>
+</body>
+</html>
