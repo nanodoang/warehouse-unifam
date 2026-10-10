@@ -183,12 +183,13 @@ details.step summary::-webkit-details-marker{display:none}
 #adminView .a-card{background:var(--surface);border:1px solid var(--line);border-radius:10px;overflow:hidden}
 #adminView .tbl-wrap{overflow-x:auto}
 #adminView table{width:100%;border-collapse:collapse;font-size:13px}
-#adminView th{font:500 11px var(--mono);text-transform:uppercase;letter-spacing:.4px;color:var(--muted);text-align:right;padding:10px 10px;border-bottom:1px solid var(--line);white-space:nowrap;background:var(--soft);cursor:pointer;user-select:none}
+#adminView th{font:500 11px var(--mono);text-transform:uppercase;letter-spacing:.4px;color:var(--muted);text-align:right;padding:10px 10px;border-bottom:1px solid var(--line);white-space:nowrap;background:var(--soft);cursor:pointer;user-select:none;vertical-align:bottom}
+#adminView th small{display:block;margin-top:2px;font:400 10px/1.3 var(--font);text-transform:none;letter-spacing:0;color:var(--muted);opacity:.85}
 #adminView th:first-child,#adminView td:first-child{text-align:left;position:sticky;left:0;z-index:1}
 #adminView th:first-child{background:var(--soft)}
 #adminView th.nosort{cursor:default}
-#adminView th[aria-sort="ascending"]::after{content:" ▲"}
-#adminView th[aria-sort="descending"]::after{content:" ▼"}
+#adminView th[aria-sort="ascending"] .t::after{content:" ▲"}
+#adminView th[aria-sort="descending"] .t::after{content:" ▼"}
 #adminView td{padding:9px 10px;border-bottom:1px solid var(--line);text-align:right;font-family:var(--mono);font-variant-numeric:tabular-nums;white-space:nowrap;background:var(--surface)}
 #adminView td.txt{font-family:var(--font);text-align:left;white-space:normal;min-width:160px}
 #adminView tr.grp{cursor:pointer}
@@ -736,12 +737,12 @@ function columns(){
   if(view==='tanggal'||view==='minggu') c.push({k:'s1',t:'S1'},{k:'s2',t:'S2'},{k:'s3',t:'S3'});
   if(view==='tim'||view==='shift'||view==='minggu') c.push({k:'perHari',t:'Truk/hari',f:v=>fmtN(v,1)});
   if(view==='truck') c.push({k:'qtyTruk',t:'Qty/truk',f:v=>fmtN(v)});
-  c.push({k:'dur',t:'Rata muat',f:hm});
+  c.push({k:'dur',t:'Rata muat',d:'jam selesai − jam muat',f:hm});
   if(view==='truck') c.push({k:'durMin',t:'Tercepat',f:v=>isFinite(v)?hm(v):'–'},{k:'durMax',t:'Terlama',f:v=>isFinite(v)?hm(v):'–'});
   c.push(
     {k:'cyc',t:'Cycle hit',pct:1},
-    {k:'tot',t:'Rata total jam',f:hm},
-    ...(view==='truck'?[{k:'std',t:'Rata standar',f:hm}]:[]),
+    {k:'tot',t:'Rata total jam',d:'jam masuk s/d jam keluar',f:hm},
+    ...(view==='truck'?[{k:'std',t:'Rata standar',d:'waktu standar dari karton/jam',f:hm}]:[]),
     {k:'tgt',t:'Target hit',pct:1},
     {k:'dt',t:'Downtime',f:v=>v?hm(v):'–'},
     {k:'top',t:'Kendala utama',cls:'txt',f:v=>v||'–'}
@@ -769,7 +770,7 @@ function render(){
     if(c.pct) return `<td>${pctHTML(v)}</td>`;
     return `<td class="${c.cls||''}">${esc(c.f?c.f(v):v)}</td>`;
   };
-  $('#tblWrap').innerHTML=`<table><thead><tr>${cols.map(c=>`<th data-k="${c.k}" ${sortKey===c.k?`aria-sort="${sortDir>0?'ascending':'descending'}"`:''}>${c.t||VIEW_TITLE[view]}</th>`).join('')}</tr></thead>
+  $('#tblWrap').innerHTML=`<table><thead><tr>${cols.map(c=>`<th data-k="${c.k}" ${sortKey===c.k?`aria-sort="${sortDir>0?'ascending':'descending'}"`:''}><span class="t">${c.t||VIEW_TITLE[view]}</span>${c.d?`<small>${c.d}</small>`:''}</th>`).join('')}</tr></thead>
   <tbody>${rows.map(r=>`<tr class="grp ${openKey===r.key?'open':''}" data-key="${esc(r.key)}">${cols.map(c=>cell(r,c)).join('')}</tr>${openKey===r.key?detailHTML(r.list,cols.length):''}`).join('')}
   <tr class="total">${cols.map(c=>cell(tot,c,true)).join('')}</tr></tbody></table>`;
 }
